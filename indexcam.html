@@ -30,23 +30,27 @@
             color: white;
             font-family: sans-serif;
             pointer-events: none;
+            text-align: center;
         }
     </style>
+
+    <!-- LOAD MEDIAPIPE GLOBALLY (Fixes the Export Error) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-    <div id="loading">Loading AI Models... Allow Camera Access.</div>
+    <div id="loading">Loading AI Models...<br>Please Allow Camera Access.</div>
     
-    <!-- Hidden video element for MediaPipe to analyze -->
     <div id="video-container">
         <video id="input-video" autoplay playsinline muted></video>
     </div>
 
-    <!-- Import Libraries via CDN -->
+    <!-- MAIN LOGIC -->
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-        import { Hands } from 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
-        import { Camera } from 'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js';
 
         // --- CONFIGURATION ---
         const PARTICLE_COUNT = 8000;
@@ -57,7 +61,6 @@
 
         // --- THREE.JS SETUP ---
         const scene = new THREE.Scene();
-        // Add some fog for depth
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -77,7 +80,6 @@
         const color2 = new THREE.Color(0xff00ff); // Magenta
 
         for (let i = 0; i < PARTICLE_COUNT; i++) {
-            // Create a cloud of particles
             const x = (Math.random() - 0.5) * 100;
             const y = (Math.random() - 0.5) * 60;
             const z = (Math.random() - 0.5) * 50;
@@ -86,12 +88,10 @@
             positions[i * 3 + 1] = y;
             positions[i * 3 + 2] = z;
 
-            // Store original position to return to
             originalPositions[i * 3] = x;
             originalPositions[i * 3 + 1] = y;
             originalPositions[i * 3 + 2] = z;
 
-            // Mixed colors
             const mixedColor = color1.clone().lerp(color2, Math.random());
             colors[i * 3] = mixedColor.r;
             colors[i * 3 + 1] = mixedColor.g;
@@ -101,7 +101,6 @@
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-        // Create texture for the particle
         const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
 
         const material = new THREE.PointsMaterial({
@@ -116,8 +115,7 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        // Hand tracking marker (invisible in final render, used for logic)
-        const handPosition = new THREE.Vector3(999, 999, 999); // Start far away
+        const handPosition = new THREE.Vector3(999, 999, 999);
 
         // --- ANIMATION LOOP ---
         function animate() {
@@ -125,32 +123,25 @@
 
             const posArray = particles.geometry.attributes.position.array;
 
-            // Loop through every particle
             for (let i = 0; i < PARTICLE_COUNT; i++) {
                 const ix = i * 3;
                 const iy = i * 3 + 1;
                 const iz = i * 3 + 2;
 
-                // Current Position
                 let px = posArray[ix];
                 let py = posArray[iy];
                 let pz = posArray[iz];
 
-                // Home Position
                 const ox = originalPositions[ix];
                 const oy = originalPositions[iy];
                 const oz = originalPositions[iz];
 
-                // Calculate distance from hand
                 const dx = px - handPosition.x;
                 const dy = py - handPosition.y;
                 const dz = pz - handPosition.z;
                 
-                // Simple Pythagorean distance
                 const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-                // INTERACTION PHYSICS
-                // If hand is close, push particle away
                 if (dist < REACTION_RADIUS) {
                     const angle = Math.atan2(dy, dx);
                     const force = (REACTION_RADIUS - dist) / REACTION_RADIUS; 
@@ -160,60 +151,49 @@
                     
                     px += moveX;
                     py += moveY;
-                    // Slightly push in Z as well for 3D feel
                     pz -= force * 0.1; 
                 } else {
-                    // Return to original position
                     px += (ox - px) * RETURN_SPEED;
                     py += (oy - py) * RETURN_SPEED;
                     pz += (oz - pz) * RETURN_SPEED;
                 }
 
-                // Update arrays
                 posArray[ix] = px;
                 posArray[iy] = py;
                 posArray[iz] = pz;
             }
 
             particles.geometry.attributes.position.needsUpdate = true;
-            
-            // Gentle rotation of the whole system
             particles.rotation.y += 0.001;
-
             renderer.render(scene, camera);
         }
 
         animate();
 
-        // --- MEDIAPIPE HAND TRACKING ---
+        // --- MEDIAPIPE HAND TRACKING (Fixed) ---
         const videoElement = document.getElementById('input-video');
 
         function onResults(results) {
             document.getElementById('loading').style.display = 'none';
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                // Get the first hand detected
                 const landmarks = results.multiHandLandmarks[0];
-                
-                // Use index finger tip (landmark 8) or palm (landmark 9)
                 const indexFinger = landmarks[8];
                 
-                // Map 2D Normalized coordinates (0 to 1) to 3D World Coordinates
-                // Note: Video is mirrored in CSS, so we invert X logic here to match natural movement
-                const x = (0.5 - indexFinger.x) * 100; // Scale to world width
-                const y = (0.5 - indexFinger.y) * 60;  // Scale to world height
+                // Map 2D to 3D world (inverted X for mirror effect)
+                const x = (0.5 - indexFinger.x) * 100;
+                const y = (0.5 - indexFinger.y) * 60;
                 
-                // Smoothly interpolate hand position to reduce jitter
                 handPosition.x += (x - handPosition.x) * 0.1;
                 handPosition.y += (y - handPosition.y) * 0.1;
-                handPosition.z = 0; // Keep hand interaction mostly on Z-plane 0
+                handPosition.z = 0;
             } else {
-                // If no hand, move target away so particles reset
                 handPosition.set(999, 999, 999);
             }
         }
 
-        const hands = new Hands({locateFile: (file) => {
+        // Access the global window.Hands object instead of import
+        const hands = new window.Hands({locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }});
 
@@ -226,7 +206,8 @@
 
         hands.onResults(onResults);
 
-        const mpCamera = new Camera(videoElement, {
+        // Access the global window.Camera object
+        const mpCamera = new window.Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({image: videoElement});
             },
@@ -236,7 +217,6 @@
 
         mpCamera.start();
 
-        // --- RESIZE HANDLER ---
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
