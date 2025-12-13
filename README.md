@@ -1,1 +1,229 @@
-# AI-projects
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Interaction Particles</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #video-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 160px;
+            height: 120px;
+            z-index: 10;
+            border: 2px solid #333;
+            transform: scaleX(-1); /* Mirror the video */
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: sans-serif;
+            pointer-events: none;
+            text-align: center;
+        }
+    </style>
+
+    <!-- LOAD MEDIAPIPE GLOBALLY (Fixes the Export Error) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <div id="loading">Loading AI Models...<br>Please Allow Camera Access.</div>
+    
+    <div id="video-container">
+        <video id="input-video" autoplay playsinline muted></video>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+
+        // --- CONFIGURATION ---
+        const PARTICLE_COUNT = 8000;
+        const PARTICLE_SIZE = 0.5;
+        const REACTION_RADIUS = 30;
+        const REACTION_SPEED = 0.5;
+        const RETURN_SPEED = 0.05;
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 50;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- PARTICLE SYSTEM ---
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(PARTICLE_COUNT * 3);
+        const originalPositions = new Float32Array(PARTICLE_COUNT * 3);
+        const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+        const color1 = new THREE.Color(0x00ffff); // Cyan
+        const color2 = new THREE.Color(0xff00ff); // Magenta
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            const x = (Math.random() - 0.5) * 100;
+            const y = (Math.random() - 0.5) * 60;
+            const z = (Math.random() - 0.5) * 50;
+
+            positions[i * 3] = x;
+            positions[i * 3 + 1] = y;
+            positions[i * 3 + 2] = z;
+
+            originalPositions[i * 3] = x;
+            originalPositions[i * 3 + 1] = y;
+            originalPositions[i * 3 + 2] = z;
+
+            const mixedColor = color1.clone().lerp(color2, Math.random());
+            colors[i * 3] = mixedColor.r;
+            colors[i * 3 + 1] = mixedColor.g;
+            colors[i * 3 + 2] = mixedColor.b;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+
+        const material = new THREE.PointsMaterial({
+            size: PARTICLE_SIZE,
+            vertexColors: true,
+            map: sprite,
+            transparent: true,
+            alphaTest: 0.5,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        const handPosition = new THREE.Vector3(999, 999, 999);
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const posArray = particles.geometry.attributes.position.array;
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const ix = i * 3;
+                const iy = i * 3 + 1;
+                const iz = i * 3 + 2;
+
+                let px = posArray[ix];
+                let py = posArray[iy];
+                let pz = posArray[iz];
+
+                const ox = originalPositions[ix];
+                const oy = originalPositions[iy];
+                const oz = originalPositions[iz];
+
+                const dx = px - handPosition.x;
+                const dy = py - handPosition.y;
+                const dz = pz - handPosition.z;
+                
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                if (dist < REACTION_RADIUS) {
+                    const angle = Math.atan2(dy, dx);
+                    const force = (REACTION_RADIUS - dist) / REACTION_RADIUS; 
+                    
+                    const moveX = Math.cos(angle) * force * REACTION_SPEED;
+                    const moveY = Math.sin(angle) * force * REACTION_SPEED;
+                    
+                    px += moveX;
+                    py += moveY;
+                    pz -= force * 0.1; 
+                } else {
+                    px += (ox - px) * RETURN_SPEED;
+                    py += (oy - py) * RETURN_SPEED;
+                    pz += (oz - pz) * RETURN_SPEED;
+                }
+
+                posArray[ix] = px;
+                posArray[iy] = py;
+                posArray[iz] = pz;
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- MEDIAPIPE HAND TRACKING (Fixed) ---
+        const videoElement = document.getElementById('input-video');
+
+        function onResults(results) {
+            document.getElementById('loading').style.display = 'none';
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indexFinger = landmarks[8];
+                
+                // Map 2D to 3D world (inverted X for mirror effect)
+                const x = (0.5 - indexFinger.x) * 100;
+                const y = (0.5 - indexFinger.y) * 60;
+                
+                handPosition.x += (x - handPosition.x) * 0.1;
+                handPosition.y += (y - handPosition.y) * 0.1;
+                handPosition.z = 0;
+            } else {
+                handPosition.set(999, 999, 999);
+            }
+        }
+
+        // Access the global window.Hands object instead of import
+        const hands = new window.Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        // Access the global window.Camera object
+        const mpCamera = new window.Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+
+        mpCamera.start();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
+
