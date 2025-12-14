@@ -34,7 +34,7 @@
         }
     </style>
 
-    <!-- LOAD MEDIAPIPE GLOBALLY (Fixes the Export Error) -->
+    
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -52,14 +52,14 @@
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-        // --- CONFIGURATION ---
+        
         const PARTICLE_COUNT = 8000;
         const PARTICLE_SIZE = 0.5;
         const REACTION_RADIUS = 30;
         const REACTION_SPEED = 0.5;
         const RETURN_SPEED = 0.05;
 
-        // --- THREE.JS SETUP ---
+        // SETTING UP THREE.JS 
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
@@ -70,7 +70,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- PARTICLE SYSTEM ---
+        
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(PARTICLE_COUNT * 3);
         const originalPositions = new Float32Array(PARTICLE_COUNT * 3);
@@ -117,7 +117,7 @@
 
         const handPosition = new THREE.Vector3(999, 999, 999);
 
-        // --- ANIMATION LOOP ---
+        // ANIMATION LOOP 
         function animate() {
             requestAnimationFrame(animate);
 
@@ -170,7 +170,7 @@
 
         animate();
 
-        // --- MEDIAPIPE HAND TRACKING (Fixed) ---
+        //  MEDIAPIPE HAND TRACKING (Fixed) 
         const videoElement = document.getElementById('input-video');
 
         function onResults(results) {
@@ -192,7 +192,7 @@
             }
         }
 
-        // Access the global window.Hands object instead of import
+        
         const hands = new window.Hands({locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }});
@@ -206,7 +206,7 @@
 
         hands.onResults(onResults);
 
-        // Access the global window.Camera object
+        
         const mpCamera = new window.Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({image: videoElement});
@@ -226,3 +226,4 @@
     </script>
 </body>
 </html>
+
