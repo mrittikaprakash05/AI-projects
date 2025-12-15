@@ -1,229 +1,99 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hand Interaction Particles</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
-        canvas { display: block; }
-        #video-container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 160px;
-            height: 120px;
-            z-index: 10;
-            border: 2px solid #333;
-            transform: scaleX(-1); /* Mirror the video */
-        }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-family: sans-serif;
-            pointer-events: none;
-            text-align: center;
-        }
-    </style>
 
-    <!-- LOAD MEDIAPIPE GLOBALLY (Fixes the Export Error) -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-</head>
-<body>
 
-    <div id="loading">Loading AI Models...<br>Please Allow Camera Access.</div>
-    
-    <div id="video-container">
-        <video id="input-video" autoplay playsinline muted></video>
-    </div>
+✨ Interactive 3D Particle System with Hand Tracking
 
-    <!-- MAIN LOGIC -->
-    <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-        // --- CONFIGURATION ---
-        const PARTICLE_COUNT = 8000;
-        const PARTICLE_SIZE = 0.5;
-        const REACTION_RADIUS = 30;
-        const REACTION_SPEED = 0.5;
-        const RETURN_SPEED = 0.05;
+A real-time, browser-based 3D simulation where a cloud of 8,000 particles reacts physically to your hand movements using your webcam. Built with Three.js for rendering and Google MediaPipe for computer vision.
 
-        // --- THREE.JS SETUP ---
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+🎮 Features
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 50;
+Real-Time Hand Tracking: Detects hand position instantly using the webcam (no dedicated hardware required).
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+Physics-Based Interaction: Particles react to the presence of the hand using repulsion forces and vector mathematics.
 
-        // --- PARTICLE SYSTEM ---
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(PARTICLE_COUNT * 3);
-        const originalPositions = new Float32Array(PARTICLE_COUNT * 3);
-        const colors = new Float32Array(PARTICLE_COUNT * 3);
+High Performance: Renders 8,000+ particles simultaneously using BufferGeometry and typed arrays (Float32Array) for 60FPS performance.
 
-        const color1 = new THREE.Color(0x00ffff); // Cyan
-        const color2 = new THREE.Color(0xff00ff); // Magenta
+3D Depth: Maps 2D video coordinates into a 3D environment for immersive depth interaction.
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const x = (Math.random() - 0.5) * 100;
-            const y = (Math.random() - 0.5) * 60;
-            const z = (Math.random() - 0.5) * 50;
+🛠️ Tech Stack
 
-            positions[i * 3] = x;
-            positions[i * 3 + 1] = y;
-            positions[i * 3 + 2] = z;
+Three.js: For high-performance WebGL 3D rendering.
 
-            originalPositions[i * 3] = x;
-            originalPositions[i * 3 + 1] = y;
-            originalPositions[i * 3 + 2] = z;
+MediaPipe Hands: For machine-learning-based hand tracking directly in the browser.
 
-            const mixedColor = color1.clone().lerp(color2, Math.random());
-            colors[i * 3] = mixedColor.r;
-            colors[i * 3 + 1] = mixedColor.g;
-            colors[i * 3 + 2] = mixedColor.b;
-        }
+HTML5 / JavaScript (ES6): Core logic.
 
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+📦 How to Run Locally
 
-        const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+Because this project accesses the webcam, browser security policies require it to run on a secure context (HTTPS) or localhost. It will not work if you simply double-click the HTML file.
 
-        const material = new THREE.PointsMaterial({
-            size: PARTICLE_SIZE,
-            vertexColors: true,
-            map: sprite,
-            transparent: true,
-            alphaTest: 0.5,
-            blending: THREE.AdditiveBlending
-        });
+Option 1: VS Code 
 
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
+Clone or download this repository.
 
-        const handPosition = new THREE.Vector3(999, 999, 999);
+Open the folder in VS Code.
 
-        // --- ANIMATION LOOP ---
-        function animate() {
-            requestAnimationFrame(animate);
+Install the "Live Server" extension.
 
-            const posArray = particles.geometry.attributes.position.array;
+Right-click index.html and select "Open with Live Server".
 
-            for (let i = 0; i < PARTICLE_COUNT; i++) {
-                const ix = i * 3;
-                const iy = i * 3 + 1;
-                const iz = i * 3 + 2;
+Option 2: Python Simple Server
 
-                let px = posArray[ix];
-                let py = posArray[iy];
-                let pz = posArray[iz];
+If you have Python installed, you can run a server from the terminal:
 
-                const ox = originalPositions[ix];
-                const oy = originalPositions[iy];
-                const oz = originalPositions[iz];
+code
+Bash
+download
+content_copy
+expand_less
+# Go to the folder
+cd path/to/folder
 
-                const dx = px - handPosition.x;
-                const dy = py - handPosition.y;
-                const dz = pz - handPosition.z;
-                
-                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+# Start server
+python -m http.server 8000
 
-                if (dist < REACTION_RADIUS) {
-                    const angle = Math.atan2(dy, dx);
-                    const force = (REACTION_RADIUS - dist) / REACTION_RADIUS; 
-                    
-                    const moveX = Math.cos(angle) * force * REACTION_SPEED;
-                    const moveY = Math.sin(angle) * force * REACTION_SPEED;
-                    
-                    px += moveX;
-                    py += moveY;
-                    pz -= force * 0.1; 
-                } else {
-                    px += (ox - px) * RETURN_SPEED;
-                    py += (oy - py) * RETURN_SPEED;
-                    pz += (oz - pz) * RETURN_SPEED;
-                }
+Then open your browser to http://localhost:8000.
 
-                posArray[ix] = px;
-                posArray[iy] = py;
-                posArray[iz] = pz;
-            }
+🧠 How it Works
+1. The Particle System
 
-            particles.geometry.attributes.position.needsUpdate = true;
-            particles.rotation.y += 0.001;
-            renderer.render(scene, camera);
-        }
+The cloud is built using a BufferGeometry. Unlike standard objects, we store position and color data in Typed Arrays. This allows the GPU to handle thousands of points efficiently without lagging the CPU.
 
-        animate();
+2. The Physics Engine
 
-        // --- MEDIAPIPE HAND TRACKING (Fixed) ---
-        const videoElement = document.getElementById('input-video');
+In every animation frame, the code calculates the distance between every single particle and the user's hand position using the distance formula:
 
-        function onResults(results) {
-            document.getElementById('loading').style.display = 'none';
+d = ((x2-x1)^2 + ( y2-y1)^2 + (z2-z1)^2)^1/2
+	​
 
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                const indexFinger = landmarks[8];
-                
-                // Map 2D to 3D world (inverted X for mirror effect)
-                const x = (0.5 - indexFinger.x) * 100;
-                const y = (0.5 - indexFinger.y) * 60;
-                
-                handPosition.x += (x - handPosition.x) * 0.1;
-                handPosition.y += (y - handPosition.y) * 0.1;
-                handPosition.z = 0;
-            } else {
-                handPosition.set(999, 999, 999);
-            }
-        }
 
-        // Access the global window.Hands object instead of import
-        const hands = new window.Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
+If Hand is Close: A repulsion vector is calculated to push the particle away.
 
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+If Hand is Far: The particle slowly interpolates (drifts) back to its original "home" position.
 
-        hands.onResults(onResults);
+3. Computer Vision
 
-        // Access the global window.Camera object
-        const mpCamera = new window.Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
+We use MediaPipe Hands to detect landmarks on the user's hand. We specifically track Landmark 8 (Index Finger Tip). The 2D coordinates (X, Y) from the video feed are normalized and mapped to the 3D world coordinates of the Three.js scene.
 
-        mpCamera.start();
+🎨 Customization
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+You can tweak the physics and visuals by editing the constants at the top of the script:
 
-    </script>
-</body>
-</html>
+code
+JavaScript
+download
+content_copy
+expand_less
+const PARTICLE_COUNT = 8000;   // Number of particles (Lower this if lagging)
+const REACTION_RADIUS = 30;    // How big the "push" area is
+const REACTION_SPEED = 0.5;    // How fast particles fly away
+const RETURN_SPEED = 0.05;     // How fast they float back
+⚠️ Troubleshooting
 
+"Loading..." stays forever: Check your browser console (F12). If you see "Permission denied," you must allow camera access in your browser settings.
+
+Black Screen: Ensure you are running on a local server (http://localhost or https://), not file://.
+
+📄 License
+
+This project is open source and available under the MIT License.
